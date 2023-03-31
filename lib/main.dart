@@ -79,7 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-            TextButton(onPressed: ()=>{Navigator.push(context, MaterialPageRoute(builder: (context)=>views.ScanServerWidget()))}, child: Text("扫描服务器")),
+            TextButton(onPressed: ()=>{Navigator.push(context, MaterialPageRoute(builder: (context)=>views.ScanServerWidget(context: context,)))}, child: Text("扫描服务器")),
             clipboard.Clipboard(),
             TextButton(onPressed: () async {
               FilePickerResult? result = await FilePicker.platform.pickFiles();
