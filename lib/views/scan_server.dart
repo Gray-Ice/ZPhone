@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:synchronized/synchronized.dart';
@@ -134,25 +136,31 @@ class ScanServerWidget extends StatelessWidget {
     );
   }
   // 确认Server是否是可用的，如果是，加入livingServer列表
-  // TODO: 确认Listen是否会超时。如果不超时的话想办法让它拥有超时能力。
   Future<void> _confirmServer(String ip) async {
     try{
       Socket socket = await Socket.connect(ip, _defaultPort, timeout: const Duration(milliseconds: 100));
       socket.setOption(SocketOption.tcpNoDelay, true);
       socket.write("ping");
+      // 设置Listen超时
+      socket.timeout(const Duration(milliseconds: 100), onTimeout: (EventSink sink) {
+        socket.close();
+      });
+      // 等待返回数据或超时
       var stream = socket.listen((data){
         String response = data.toString();
+        // 期望的返回数据，加入服务器列表
         if(response == "pong"){
           _lock.synchronized(() async {
             livingServer.add(ServerInfo(ip, _defaultPort));
             socket.close();
           });
         } else {
-          _lock.synchronized(() async {
-            socket.close();
-          });
+          // 不期望的返回数据，直接关闭
+          socket.close();
         }
       });
+
+      // 等待Listen执行完毕
       await stream.asFuture<void>();
     } on SocketException catch (_) {
       return;
