@@ -51,7 +51,7 @@ class Clipboard extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        TextButton(onPressed: ()=>{Navigator.push(context, MaterialPageRoute(builder: (context)=>ScanServer()))}, child: Text("发送剪切板")),
+        TextButton(onPressed: ()=>{sendClipboard()}, child: Text("发送剪切板")),
         TextButton(onPressed: ()=>{}, child: Text("接收剪切板")),
       ],
     );
