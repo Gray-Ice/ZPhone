@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:synchronized/synchronized.dart';
 import "package:connectivity_plus/connectivity_plus.dart";
+import "package:flutter_code/globals/network.dart";
 
 int _defaultPort = 8080;
 
