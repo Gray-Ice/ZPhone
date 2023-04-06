@@ -35,11 +35,11 @@ class Clipboard extends StatelessWidget {
       port: net_globals.defaultServerPort,  // 默认端口号
       options: ChannelOptions(
         credentials: ChannelCredentials.insecure(),
-        codecRegistry: CodecRegistry(codecs: [GzipCodec(), IdentityCodec()]),
+        // codecRegistry: CodecRegistry(codecs: [GzipCodec(), IdentityCodec()]),
       ),
     );
 
-    var client = clip_rpc.ClipboardClient(channel);
+    var client = clip_rpc.ClipboardClient(channel);  // 创建客户端
     try{
       await client.shareClipboard(clip);
     } catch (e) {

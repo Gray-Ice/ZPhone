@@ -1,7 +1,7 @@
 syntax = "proto3";
-package clipboard_rpc.rpc;
+package clipboard_rpc;
 import "google/protobuf/empty.proto";
-option go_package = "protobuf/clipboard";
+option go_package = "methods/clipboard";
 
 message ClipboardContent {
   string text = 1;

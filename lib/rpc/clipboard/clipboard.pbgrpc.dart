@@ -17,7 +17,7 @@ export 'clipboard.pb.dart';
 class ClipboardClient extends $grpc.Client {
   static final _$shareClipboard =
       $grpc.ClientMethod<$0.ClipboardContent, $1.Empty>(
-          '/clipboard_rpc.rpc.Clipboard/ShareClipboard',
+          '/clipboard_rpc.Clipboard/ShareClipboard',
           ($0.ClipboardContent value) => value.writeToBuffer(),
           ($core.List<$core.int> value) => $1.Empty.fromBuffer(value));
 
@@ -33,7 +33,7 @@ class ClipboardClient extends $grpc.Client {
 }
 
 abstract class ClipboardServiceBase extends $grpc.Service {
-  $core.String get $name => 'clipboard_rpc.rpc.Clipboard';
+  $core.String get $name => 'clipboard_rpc.Clipboard';
 
   ClipboardServiceBase() {
     $addMethod($grpc.ServiceMethod<$0.ClipboardContent, $1.Empty>(
