@@ -1,30 +1,98 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import "package:flutter_code/rpc/google/protobuf/empty.pb.dart" as empty;
+import 'package:grpc/grpc.dart';
+import 'dart:io';
+import 'package:synchronized/synchronized.dart';
+import "package:flutter_code/rpc/auth/auth.pbgrpc.dart" as auth_rpc;
 
-import 'package:flutter_code/main.dart';
 
-void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+class _availableServer {
+  _availableServer();
+  List<String> ips = <String>[];
+  Lock lock = Lock();
+}
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+Future<String> getCurrentIP() async {
+  final interfaces = await NetworkInterface.list();
+  String? ip;
+  interfaces.forEach((interface) {
+    interface.addresses.forEach((address) {
+      if (address.type == InternetAddressType.IPv4) {
+        ip = address.address;
+        // print('IP: ${address.address}');
+        // print('Subnet mask: ${address.rawAddress}');
+      }
+    });
   });
+  return ip ?? "";
+}
+
+Future<List<String>> _scanLivingHosts(String currentIP) async {
+  List<String> ipSlices = currentIP.split(".");
+  print("Start scan");
+  List<String> availableIPs = [];
+  for (int i = 1; i < 255; i++) {
+    ipSlices[3] = i.toString();
+    String ip = ipSlices.join(".");
+    try {
+      final result = await InternetAddress.lookup(ip);
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        availableIPs.add(ip);
+      }
+    } on SocketException catch (_) {}
+  }
+  return availableIPs;
+}
+
+Future<void> _confirmServer(String ip, _availableServer list) async {
+  final channel = ClientChannel(
+    ip,
+    port: 8887,
+    options: const ChannelOptions(
+      credentials: ChannelCredentials.insecure(),
+      connectionTimeout: Duration(seconds: 1),
+    ),
+  );
+
+  var auth = auth_rpc.AuthClient(channel);
+
+  empty.Empty em = empty.Empty();
+  try {
+    await auth.heartBeat(em);
+    await list.lock.synchronized(() => list.ips.add(ip));
+  } catch (e) {
+    print("IP $ip not a server");
+  }
+  await channel.shutdown();
+}
+
+Future<List<String>> _scanLivingServer(List<String> availableIPs) async {
+  print("Start second scan");
+  List<Future> asyncTasks = [];
+  _availableServer availableServers = _availableServer();
+  for (int i = 0; i < availableIPs.length; i++) {
+    String ip = availableIPs[i];
+    try {
+      asyncTasks.add(_confirmServer(ip, availableServers));
+    } on SocketException catch (_) {
+      continue;
+    } on ArgumentError catch (_) {
+      print("错误的主机名或端口");
+    }
+  }
+  await Future.wait(asyncTasks);
+
+  return availableServers.ips;
+}
+void main () async {
+  // var currentIP = await getCurrentIP();
+  var currentIP = "127.0.0.1";
+  var availableIPs = await _scanLivingHosts(currentIP);
+  for (int i = 0; i < availableIPs.length; i++) {
+    print(availableIPs[i]);
+  }
+  var availableServers = await _scanLivingServer(availableIPs);
+  print(availableServers);
+
 }
