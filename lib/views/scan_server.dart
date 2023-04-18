@@ -7,9 +7,8 @@ import 'dart:io';
 import 'package:synchronized/synchronized.dart';
 import "package:connectivity_plus/connectivity_plus.dart";
 import "package:flutter_code/rpc/auth/auth.pbgrpc.dart" as auth_rpc;
-import "package:flutter_code/globals/network.dart";
+import "package:flutter_code/globals/network.dart" as global_network;
 
-int _defaultPort = 8080;
 
 class _availableServer {
   _availableServer();
@@ -87,10 +86,10 @@ class ScanNetOptions extends StatelessWidget {
   }
 }
 
+
 class ScanServerWidget extends StatelessWidget {
   ScanServerWidget({Key? key, required this.context}) : super(key: key);
   ScanNetOptions scanNetOptions = ScanNetOptions();
-  final Lock _lock = Lock();
   BuildContext context;
   List<ServerInfo> livingServer = [];
 
@@ -114,7 +113,7 @@ class ScanServerWidget extends StatelessWidget {
     List<String> ipSlices = currentIP.split(".");
     debugPrint("Start scan");
     List<String> availableIPs = [];
-    for (int i = 0; i < 255; i++) {
+    for (int i = 1; i < 255; i++) {
       ipSlices[3] = i.toString();
       String ip = ipSlices.join(".");
       try {
@@ -156,9 +155,10 @@ class ScanServerWidget extends StatelessWidget {
   Future<void> _confirmServer(String ip, _availableServer list) async {
     final channel = ClientChannel(
       ip,
-      port: _defaultPort,
+      port: global_network.defaultServerPort,
       options: const ChannelOptions(
         credentials: ChannelCredentials.insecure(),
+        connectionTimeout: Duration(seconds: 1),
       ),
       );
 
@@ -171,9 +171,10 @@ class ScanServerWidget extends StatelessWidget {
     } catch (e) {
       debugPrint("IP $ip not a server");
     }
-    channel.shutdown();
+    await channel.shutdown();
   }
 
+  // 二次扫描, 返回真正可用的服务器IP列表
   Future<List<String>> _scanLivingServer(List<String> availableIPs) async {
     debugPrint("Start second scan");
     List<Future> asyncTasks = [];
@@ -193,6 +194,29 @@ class ScanServerWidget extends StatelessWidget {
     return availableServers.ips;
   }
 
+  Future<bool> scanTargetIP(String ip, int port) async {
+    final channel = ClientChannel(
+      ip,
+      port: port,
+      options: const ChannelOptions(
+        credentials: ChannelCredentials.insecure(),
+        connectionTimeout: Duration(seconds: 1),
+      ),
+      );
+
+    var auth = auth_rpc.AuthClient(channel);
+
+    empty.Empty em = empty.Empty();
+    try {
+      await auth.heartBeat(em);
+      await channel.shutdown();
+      return true;
+    } catch (e) {
+      debugPrint("IP $ip not a server");
+      await channel.shutdown();
+      return false;
+    }
+  }
   Future<List<String>> defaultScanMethod(context) async {
     debugPrint("In");
     List<String> ips = <String>[];
@@ -242,7 +266,10 @@ class ScanServerWidget extends StatelessWidget {
     livingServer.clear();
     // 没有设置IP和端口，使用默认方式扫描
     if (scanNetOptions.useDefaultSetting) {
-      return await defaultScanMethod(context);
+      var ips =  await defaultScanMethod(context);
+      for(var ip in ips){
+        livingServer.add(ServerInfo(ip, global_network.defaultServerPort));
+      }
     }
 
     var ip = scanNetOptions.ip;
@@ -253,6 +280,12 @@ class ScanServerWidget extends StatelessWidget {
           .showSnackBar(SnackBar(content: Text("使用默认方式扫描")));
       return await defaultScanMethod(context);
     }
+    var scan_target_ip_result = await scanTargetIP(ip, port);
+    if(scan_target_ip_result){
+      livingServer.add(ServerInfo(ip, port));
+      return <String>["$ip:$port"];
+    }
+
     return <String>[];
   }
 
