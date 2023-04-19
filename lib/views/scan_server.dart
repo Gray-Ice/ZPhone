@@ -9,9 +9,9 @@ import "package:connectivity_plus/connectivity_plus.dart";
 import "package:flutter_code/rpc/auth/auth.pbgrpc.dart" as auth_rpc;
 import "package:flutter_code/globals/network.dart" as global_network;
 
-
 class _availableServer {
   _availableServer();
+
   List<String> ips = <String>[];
   Lock lock = Lock();
 }
@@ -55,43 +55,60 @@ class ScanNetOptions extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        TextButton(
-            onPressed: () => useDefaultSetting = true,
-            child: const Text("使用默认方式扫描")),
-        Flexible(
-            child: TextField(
-          onChanged: ipOnChanged,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'IP',
+        Container(
+          child: Wrap(
+            children: [
+              TextButton(
+                  onPressed: () => useDefaultSetting = true,
+                  child: const Text("使用默认方式扫描")),
+              Row(
+                children: [
+                  // 必须用SizedBox包裹TextField，否则Row会报错
+                  SizedBox(
+                    child: TextField(
+                      onChanged: ipOnChanged,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'IP',
+                      ),
+                    ),
+                    width: 100,
+                    height: 40,
+                  ),
+                  SizedBox(
+                    child: TextField(
+                      onChanged: portOnChanged,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Port',
+                      ),
+                    ),
+                    width: 100,
+                    height: 40,
+                  ),
+                ],
+              ),
+              // TextField(
+              //   onChanged: portOnChanged,
+              //   decoration: const InputDecoration(
+              //     border: OutlineInputBorder(),
+              //     labelText: '端口',
+              //   ),
+              // ),
+            ],
           ),
-        )),
-        Flexible(
-            child: TextField(
-          onChanged: portOnChanged,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'Port',
-          ),
-        )),
-        // TextField(
-        //   onChanged: portOnChanged,
-        //   decoration: const InputDecoration(
-        //     border: OutlineInputBorder(),
-        //     labelText: '端口',
-        //   ),
-        // ),
+        )
       ],
     );
   }
 }
-
 
 class ScanServerWidget extends StatelessWidget {
   ScanServerWidget({Key? key, required this.context}) : super(key: key);
   ScanNetOptions scanNetOptions = ScanNetOptions();
   BuildContext context;
   List<ServerInfo> livingServer = [];
+  bool isShowingSwitchServer = false;
 
   // 返回IP或空字符串
   Future<String> getCurrentIP() async {
@@ -160,7 +177,7 @@ class ScanServerWidget extends StatelessWidget {
         credentials: ChannelCredentials.insecure(),
         connectionTimeout: Duration(seconds: 1),
       ),
-      );
+    );
 
     var auth = auth_rpc.AuthClient(channel);
 
@@ -202,7 +219,7 @@ class ScanServerWidget extends StatelessWidget {
         credentials: ChannelCredentials.insecure(),
         connectionTimeout: Duration(seconds: 1),
       ),
-      );
+    );
 
     var auth = auth_rpc.AuthClient(channel);
 
@@ -217,6 +234,7 @@ class ScanServerWidget extends StatelessWidget {
       return false;
     }
   }
+
   Future<List<String>> defaultScanMethod(context) async {
     debugPrint("In");
     List<String> ips = <String>[];
@@ -266,8 +284,8 @@ class ScanServerWidget extends StatelessWidget {
     livingServer.clear();
     // 没有设置IP和端口，使用默认方式扫描
     if (scanNetOptions.useDefaultSetting) {
-      var ips =  await defaultScanMethod(context);
-      for(var ip in ips){
+      var ips = await defaultScanMethod(context);
+      for (var ip in ips) {
         livingServer.add(ServerInfo(ip, global_network.defaultServerPort));
       }
     }
@@ -281,12 +299,62 @@ class ScanServerWidget extends StatelessWidget {
       return await defaultScanMethod(context);
     }
     var scan_target_ip_result = await scanTargetIP(ip, port);
-    if(scan_target_ip_result){
+    if (scan_target_ip_result) {
       livingServer.add(ServerInfo(ip, port));
       return <String>["$ip:$port"];
     }
 
     return <String>[];
+  }
+
+  Future<void> popUpServerSwitchList(BuildContext context) async {
+    if (isShowingSwitchServer) {
+      return;
+    }
+    this.isShowingSwitchServer = true;
+    // var ips = await scanLocalAreaNetworkService(context);
+    var ips = <String>[];
+    ips.add("127.0.0.1:8000");
+    ips.add("127.0.0.1:8001");
+    showDialog(
+        context: context,
+        builder: (BuildContext build) {
+          var rows = <Row>[];
+          for (var i = 0; i < ips.length; i++) {
+            var column = Row(
+              children: [
+                Text(ips[i]),
+                ElevatedButton(
+                    onPressed: () {
+                      // 输出ip
+                      debugPrint(ips[i]);
+
+                      // 设置全局ip和port
+                      String ip = ips[i].split(":")[0];
+                      int port = int.parse(ips[i].split(":")[0]);
+                      global_network.ip = ip;
+                      global_network.port = port;
+
+                      Navigator.of(build).pop();  // 退出Dialog窗口
+                      Navigator.of(context).pop();  // 退出扫描IP窗口
+                    },
+                    child: const Text("确定"))
+              ],
+            );
+            rows.add(column);
+          }
+          return AlertDialog(
+            title: Text("选择一个服务器"),
+            content: Wrap(
+              children: [
+                Column(
+                  children: rows,
+                )
+              ],
+            ),
+          );
+        });
+    this.isShowingSwitchServer = false;
   }
 
   @override
@@ -301,7 +369,7 @@ class ScanServerWidget extends StatelessWidget {
             children: [
               scanNetOptions,
               TextButton(
-                  onPressed: () => scanLocalAreaNetworkService(context),
+                  onPressed: () => popUpServerSwitchList(context),
                   child: Text("开始扫描")),
             ],
           ),
