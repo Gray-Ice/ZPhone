@@ -1,23 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:grpc/grpc.dart';
 import "package:flutter_code/rpc/clipboard/clipboard.pbgrpc.dart" as clip_rpc;
+import "package:flutter_code/rpc/google/protobuf/empty.pb.dart" as google_empty;
 import "package:flutter_code/globals/network.dart" as net_globals;
-
-class ScanServer extends StatelessWidget {
-  const ScanServer({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("扫描服务器"),
-      ),
-      body: const Center(
-        child: Text("扫描服务器"),
-      ),
-    );
-  }
-}
 
 
 class Clipboard extends StatelessWidget {
@@ -66,5 +51,13 @@ class Clipboard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
     );
+  }
+}
+
+class ClipboardServer extends clip_rpc.ClipboardServiceBase{
+  @override
+  Future<google_empty.Empty> shareClipboard(ServiceCall call, clip_rpc.ClipboardContent content) async {
+    debugPrint("Received clipboard: ${content.text}");
+    return google_empty.Empty();
   }
 }

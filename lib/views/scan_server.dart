@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' as async;
 
 import "package:flutter_code/rpc/google/protobuf/empty.pb.dart" as empty;
 import 'package:grpc/grpc.dart';
@@ -8,6 +8,7 @@ import 'package:synchronized/synchronized.dart';
 import "package:connectivity_plus/connectivity_plus.dart";
 import "package:flutter_code/rpc/auth/auth.pbgrpc.dart" as auth_rpc;
 import "package:flutter_code/globals/network.dart" as global_network;
+import "package:flutter_code/globals/project.dart" as global_project;
 
 class _availableServer {
   _availableServer();
@@ -24,6 +25,7 @@ class ServerInfo {
 }
 
 class ScanNetOptions extends StatelessWidget {
+  // TODO: 将展示可用服务器的控件设置为ListView
   ScanNetOptions({Key? key}) : super(key: key);
   BuildContext? bcontext;
   bool useDefaultSetting = true;
@@ -32,8 +34,12 @@ class ScanNetOptions extends StatelessWidget {
   bool snackBarShowing = false;
 
   void portOnChanged(String value) {
+    if (value == "") {
+      return;
+    }
     try {
       port = int.parse(value);
+      useDefaultSetting = false;
     } on FormatException catch (_) {
       snackBarShowing = true;
       ScaffoldMessenger.of(bcontext!)
@@ -46,7 +52,8 @@ class ScanNetOptions extends StatelessWidget {
   }
 
   void ipOnChanged(String value) {
-    port = int.parse(value);
+    ip = value;
+    useDefaultSetting = false;
   }
 
   @override
@@ -65,6 +72,8 @@ class ScanNetOptions extends StatelessWidget {
                 children: [
                   // 必须用SizedBox包裹TextField，否则Row会报错
                   SizedBox(
+                    width: 100,
+                    height: 40,
                     child: TextField(
                       onChanged: ipOnChanged,
                       decoration: const InputDecoration(
@@ -72,10 +81,10 @@ class ScanNetOptions extends StatelessWidget {
                         labelText: 'IP',
                       ),
                     ),
-                    width: 100,
-                    height: 40,
                   ),
                   SizedBox(
+                    width: 100,
+                    height: 40,
                     child: TextField(
                       onChanged: portOnChanged,
                       decoration: const InputDecoration(
@@ -83,8 +92,6 @@ class ScanNetOptions extends StatelessWidget {
                         labelText: 'Port',
                       ),
                     ),
-                    width: 100,
-                    height: 40,
                   ),
                 ],
               ),
@@ -143,31 +150,6 @@ class ScanServerWidget extends StatelessWidget {
     return availableIPs;
   }
 
-  void showAvailableServers(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("可用服务器"),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children:
-                  livingServer.map((e) => Text("${e.ip}:${e.port}")).toList(),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text("确定"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // 确认Server是否是可用的，如果是，加入livingServer列表
   Future<void> _confirmServer(String ip, _availableServer list) async {
     final channel = ClientChannel(
@@ -198,15 +180,12 @@ class ScanServerWidget extends StatelessWidget {
     _availableServer availableServers = _availableServer();
     for (int i = 0; i < availableIPs.length; i++) {
       String ip = availableIPs[i];
-      try {
-        asyncTasks.add(_confirmServer(ip, availableServers));
-      } on SocketException catch (_) {
-        continue;
-      } on ArgumentError catch (_) {
-        debugPrint("错误的主机名或端口");
-      }
+      var task = _confirmServer(ip, availableServers);
+      asyncTasks.add(_confirmServer(ip, availableServers));
     }
+    // 等待检测服务器任务全部执行完毕
     await Future.wait(asyncTasks);
+    debugPrint("Second scan finished");
 
     return availableServers.ips;
   }
@@ -236,7 +215,7 @@ class ScanServerWidget extends StatelessWidget {
   }
 
   Future<List<String>> defaultScanMethod(context) async {
-    debugPrint("In");
+    debugPrint("Running defaultScanMethod");
     List<String> ips = <String>[];
 
     // 检查是否连接WiFi
@@ -248,7 +227,7 @@ class ScanServerWidget extends StatelessWidget {
     }
 
     var currentIP = await getCurrentIP();
-    String serverIP = "";
+    debugPrint("CurrentIP: $currentIP");
     // Can't find server
     if (currentIP == "") {
       return ips;
@@ -266,6 +245,7 @@ class ScanServerWidget extends StatelessWidget {
 
     // 初次扫描，仅扫描局域网内的机器作为初筛结果
     List<String> availableIPs = await _scanLivingHosts(currentIP);
+    debugPrint("$availableIPs");
     // 没有找到服务器
     if (availableIPs.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -275,7 +255,6 @@ class ScanServerWidget extends StatelessWidget {
 
     // 二次扫描，对初筛结果进行二次筛选，找到服务器
     ips = await _scanLivingServer(availableIPs);
-    debugPrint("This is $serverIP");
     return ips;
   }
 
@@ -284,10 +263,12 @@ class ScanServerWidget extends StatelessWidget {
     livingServer.clear();
     // 没有设置IP和端口，使用默认方式扫描
     if (scanNetOptions.useDefaultSetting) {
+      debugPrint("${scanNetOptions.useDefaultSetting}");
       var ips = await defaultScanMethod(context);
       for (var ip in ips) {
         livingServer.add(ServerInfo(ip, global_network.defaultServerPort));
       }
+      return ips;
     }
 
     var ip = scanNetOptions.ip;
@@ -295,11 +276,12 @@ class ScanServerWidget extends StatelessWidget {
     // 虽然设置了IP或端口但是最后删除了，所以还是使用默认方式扫描
     if (ip == "" && port == 0) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("使用默认方式扫描")));
+          .showSnackBar(const SnackBar(content: Text("使用默认方式扫描")));
       return await defaultScanMethod(context);
     }
-    var scan_target_ip_result = await scanTargetIP(ip, port);
-    if (scan_target_ip_result) {
+    debugPrint("Using custom scan method, ip: $ip, port: $port");
+    var scanTargetIpResult = await scanTargetIP(ip, port);
+    if (scanTargetIpResult) {
       livingServer.add(ServerInfo(ip, port));
       return <String>["$ip:$port"];
     }
@@ -307,17 +289,18 @@ class ScanServerWidget extends StatelessWidget {
     return <String>[];
   }
 
+  // 展示选择服务器列表
   Future<void> popUpServerSwitchList(BuildContext context) async {
     if (isShowingSwitchServer) {
       return;
     }
-    this.isShowingSwitchServer = true;
-    // var ips = await scanLocalAreaNetworkService(context);
-    var ips = <String>[];
-    ips.add("127.0.0.1:8000");
-    ips.add("127.0.0.1:8001");
+    isShowingSwitchServer = true;
+    List<String> ips = await scanLocalAreaNetworkService(context);
+    // List<String> ips = <String>[];
+    // ips.add("127.0.0.1:8000");
+    // ips.add("127.0.0.1:8001");
     showDialog(
-        context: context,
+        context: global_project.navigatorKey.currentContext!,
         builder: (BuildContext build) {
           var rows = <Row>[];
           for (var i = 0; i < ips.length; i++) {
@@ -327,16 +310,17 @@ class ScanServerWidget extends StatelessWidget {
                 ElevatedButton(
                     onPressed: () {
                       // 输出ip
-                      debugPrint(ips[i]);
+                      debugPrint("${ips[i]}");
+                      debugPrint("Printed");
 
                       // 设置全局ip和port
-                      String ip = ips[i].split(":")[0];
-                      int port = int.parse(ips[i].split(":")[0]);
-                      global_network.ip = ip;
-                      global_network.port = port;
-
-                      Navigator.of(build).pop();  // 退出Dialog窗口
-                      Navigator.of(context).pop();  // 退出扫描IP窗口
+                      // String ip = ips[i].split(":")[0];
+                      // int port = int.parse(ips[i].split(":")[0]);
+                      // global_network.ip = ip;
+                      // global_network.port = port;
+                      //
+                      // Navigator.of(build).pop(); // 退出Dialog窗口
+                      // Navigator.of(context).pop(); // 退出扫描IP窗口
                     },
                     child: const Text("确定"))
               ],

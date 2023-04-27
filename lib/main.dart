@@ -4,6 +4,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_code/plugins/clipboard.dart' as clipboard;
 import "package:flutter_code/views/scan_server.dart" as views;
+import "package:flutter_code/models/network.dart" as net_models;
+import "package:flutter_code/globals/project.dart" as project_globals;
+import 'package:provider/provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -30,10 +33,10 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
       ),
       home: const MyHomePage(title: 'ZPhone'),
+      navigatorKey: project_globals.navigatorKey,
     );
   }
 }
-
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -72,36 +75,37 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            TextButton(onPressed: ()=>{Navigator.push(context, MaterialPageRoute(builder: (context)=>views.ScanServerWidget(context: context,)))}, child: Text("扫描服务器")),
+            TextButton(
+                onPressed: () => {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => views.ScanServerWidget(
+                                    context: context,
+                                  )))
+                    },
+                child: Text("扫描服务器")),
             clipboard.Clipboard(),
-            TextButton(onPressed: () async {
-              FilePickerResult? result = await FilePicker.platform.pickFiles();
-              // if(result != null) {
-              //   String? path = result.files.single.path;
-              //   if (path != null) {
-              //     File file = File(path);
-              //   }
-              // }
-              if (result != null) {
-                File? file = result.files.single.path == null ? null : File(result.files.single.path!);
-              }
-
-            }, child: const Text("Something"))
+            TextButton(
+                onPressed: () async {
+                  FilePickerResult? result =
+                      await FilePicker.platform.pickFiles();
+                  // if(result != null) {
+                  //   String? path = result.files.single.path;
+                  //   if (path != null) {
+                  //     File file = File(path);
+                  //   }
+                  // }
+                  if (result != null) {
+                    File? file = result.files.single.path == null
+                        ? null
+                        : File(result.files.single.path!);
+                  }
+                },
+                child: const Text("Something"))
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
