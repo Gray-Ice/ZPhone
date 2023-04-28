@@ -1,14 +1,17 @@
-import 'dart:async' as async;
+import 'dart:async';
+import "package:async/async.dart";
 
 import "package:flutter_code/rpc/google/protobuf/empty.pb.dart" as empty;
-import 'package:grpc/grpc.dart';
-import 'package:flutter/material.dart';
-import 'dart:io';
-import 'package:synchronized/synchronized.dart';
-import "package:connectivity_plus/connectivity_plus.dart";
+import "package:flutter_code/globals/storage/keys.dart" as keys;
 import "package:flutter_code/rpc/auth/auth.pbgrpc.dart" as auth_rpc;
 import "package:flutter_code/globals/network.dart" as global_network;
 import "package:flutter_code/globals/project.dart" as global_project;
+import 'package:grpc/grpc.dart';
+import 'package:flutter/material.dart';
+import 'dart:io';
+import "package:shared_preferences/shared_preferences.dart";
+import 'package:synchronized/synchronized.dart';
+import "package:connectivity_plus/connectivity_plus.dart";
 
 class _availableServer {
   _availableServer();
@@ -166,9 +169,10 @@ class ScanServerWidget extends StatelessWidget {
     empty.Empty em = empty.Empty();
     try {
       await auth.heartBeat(em);
-      await list.lock.synchronized(() => list.ips.add(ip));
+      await list.lock.synchronized(
+          () => list.ips.add("$ip:${global_network.defaultServerPort}"));
     } catch (e) {
-      debugPrint("IP $ip not a server");
+      debugPrint("IP $ip not a server.error: $e");
     }
     await channel.shutdown();
   }
@@ -176,15 +180,25 @@ class ScanServerWidget extends StatelessWidget {
   // 二次扫描, 返回真正可用的服务器IP列表
   Future<List<String>> _scanLivingServer(List<String> availableIPs) async {
     debugPrint("Start second scan");
-    List<Future> asyncTasks = [];
+    // List<Future> asyncTasks = [];
+    List<CancelableOperation<void>> cancelableTasks = [];
     _availableServer availableServers = _availableServer();
     for (int i = 0; i < availableIPs.length; i++) {
       String ip = availableIPs[i];
-      var task = _confirmServer(ip, availableServers);
-      asyncTasks.add(_confirmServer(ip, availableServers));
+      var task = CancelableOperation.fromFuture(
+          _confirmServer(ip, availableServers),
+          onCancel: () => debugPrint("Cancel task, ip: $ip"));
+      cancelableTasks.add(task);
+    }
+    await Future.delayed(const Duration(seconds: 5));
+
+    for (var cancelableTask in cancelableTasks) {
+      if (!cancelableTask.isCompleted) {
+        cancelableTask.cancel();
+      }
     }
     // 等待检测服务器任务全部执行完毕
-    await Future.wait(asyncTasks);
+    // await Future.wait(asyncTasks);
     debugPrint("Second scan finished");
 
     return availableServers.ips;
@@ -214,6 +228,7 @@ class ScanServerWidget extends StatelessWidget {
     }
   }
 
+  // default Scan server
   Future<List<String>> defaultScanMethod(context) async {
     debugPrint("Running defaultScanMethod");
     List<String> ips = <String>[];
@@ -278,7 +293,13 @@ class ScanServerWidget extends StatelessWidget {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text("使用默认方式扫描")));
       return await defaultScanMethod(context);
+    } else if (ip == "" && port != 0) {
+      // 如果仅仅设置了端口，那就扫描全网段的端口
+      global_network.defaultServerPort = port;
+      return await defaultScanMethod(context);
     }
+
+    // 设置了IP或Port，开启自定义模式
     debugPrint("Using custom scan method, ip: $ip, port: $port");
     var scanTargetIpResult = await scanTargetIP(ip, port);
     if (scanTargetIpResult) {
@@ -291,11 +312,25 @@ class ScanServerWidget extends StatelessWidget {
 
   // 展示选择服务器列表
   Future<void> popUpServerSwitchList(BuildContext context) async {
+    // ()async{debugPrint("Hello");}();
+    // return;
     if (isShowingSwitchServer) {
       return;
     }
     isShowingSwitchServer = true;
+
+    showDialog(
+        context: global_project.navigatorKey.currentContext!,
+        builder: (BuildContext build) {
+          return AlertDialog(
+            title: Text("正在扫描服务器"),
+            content: Text("请稍等"),
+          );
+        });
     List<String> ips = await scanLocalAreaNetworkService(context);
+    debugPrint("ips: $ips");
+    Navigator.of(global_project.navigatorKey.currentContext!).pop(); // 退出扫描IP窗口
+    // 注释内容为示例IP
     // List<String> ips = <String>[];
     // ips.add("127.0.0.1:8000");
     // ips.add("127.0.0.1:8001");
@@ -308,19 +343,26 @@ class ScanServerWidget extends StatelessWidget {
               children: [
                 Text(ips[i]),
                 ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       // 输出ip
                       debugPrint("${ips[i]}");
                       debugPrint("Printed");
 
                       // 设置全局ip和port
-                      // String ip = ips[i].split(":")[0];
-                      // int port = int.parse(ips[i].split(":")[0]);
-                      // global_network.ip = ip;
-                      // global_network.port = port;
-                      //
-                      // Navigator.of(build).pop(); // 退出Dialog窗口
-                      // Navigator.of(context).pop(); // 退出扫描IP窗口
+                      String ip = ips[i].split(":")[0];
+                      debugPrint("${ips[i].split(":")}");
+                      int port = int.parse(ips[i].split(":")[1]);
+                      global_network.ip = ip;
+                      global_network.port = port;
+
+                      debugPrint("set ip and port to local storage");
+                      var sharedPreference =
+                          await SharedPreferences.getInstance();
+                      sharedPreference.setString(keys.lastIpString, ip);
+                      sharedPreference.setInt(keys.lastPortInt, port);
+
+                      Navigator.of(build).pop(); // 退出Dialog窗口
+                      Navigator.of(context).pop(); // 退出扫描IP窗口
                     },
                     child: const Text("确定"))
               ],
@@ -360,3 +402,19 @@ class ScanServerWidget extends StatelessWidget {
         ));
   }
 }
+
+// class ServerListWidget extends StatefulWidget {
+//   const ServerListWidget({Key? key}) : super(key: key);
+//
+//   @override
+//   ServerListWidgetState createState() => ServerListWidgetState();
+// }
+//
+// class ServerListWidgetState extends State<ServerListWidget> {
+//   @override
+//   Widget build(BuildContext context){
+//     return
+//
+//   }
+//
+// }

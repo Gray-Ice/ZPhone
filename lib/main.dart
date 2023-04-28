@@ -1,5 +1,11 @@
 import 'dart:io';
 
+import "package:flutter_code/rpc/auth/auth.pbgrpc.dart" as auth_rpc;
+import 'package:grpc/grpc.dart';
+import "package:flutter_code/rpc/google/protobuf/empty.pb.dart" as empty;
+import "package:flutter_code/globals/storage/keys.dart" as keys;
+import "package:flutter_code/globals/project.dart" as global_project;
+import "package:shared_preferences/shared_preferences.dart";
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_code/plugins/clipboard.dart' as clipboard;
@@ -7,6 +13,7 @@ import "package:flutter_code/views/scan_server.dart" as views;
 import "package:flutter_code/models/network.dart" as net_models;
 import "package:flutter_code/globals/project.dart" as project_globals;
 import 'package:provider/provider.dart';
+import "package:flutter_code/models/menubar.dart" as menu_models;
 
 void main() {
   runApp(const MyApp());
@@ -32,14 +39,16 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'ZPhone'),
+      home: MyHomePage(title: ChangeNotifierProvider(create: (context) => menu_models.HomeTitleModel(),
+          child: Consumer<menu_models.HomeTitleModel>(builder: (context, titleModel, child){debugPrint("This is title: ${titleModel.text}");return Text("${titleModel.text}");},)),
+      ),
       navigatorKey: project_globals.navigatorKey,
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  MyHomePage({super.key, required this.title});
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -50,7 +59,7 @@ class MyHomePage extends StatefulWidget {
   // used by the build method of the State. Fields in a Widget subclass are
   // always marked "final".
 
-  final String title;
+  Widget title;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -67,9 +76,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    connectToLastConnectedServer();
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: widget.title,
       ),
       body: Center(
         child: Column(
@@ -108,4 +118,63 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
+}
+Future<void> connectToLastConnectedServer() async {
+  var sharedPref = await SharedPreferences.getInstance();
+  var ip = sharedPref.getString(keys.lastIpString);
+  var port = sharedPref.getInt(keys.lastPortInt);
+  if(ip == null || port == null) {
+    return;
+  }
+  bool connectSuccess = false;
+
+  showDialog(
+      context: global_project.navigatorKey.currentContext!,
+      builder: (BuildContext build) {
+        return AlertDialog(
+          title: Text("正在扫描服务器"),
+          content: Text("请稍等"),
+        );
+      });
+
+  debugPrint("Trying to connect last connected server: $ip:$port");
+  final channel = ClientChannel(
+    ip,
+    port: port,
+    options: const ChannelOptions(
+      credentials: ChannelCredentials.insecure(),
+      connectionTimeout: Duration(seconds: 1),
+    ),
+  );
+
+  var auth = auth_rpc.AuthClient(channel);
+
+  empty.Empty em = empty.Empty();
+  try {
+    await auth.heartBeat(em);
+    connectSuccess = true;
+    debugPrint("going to add suffix");
+    var menuModel = Provider.of<menu_models.HomeTitleModel>(global_project.navigatorKey.currentContext!);
+    debugPrint("got model");
+    menuModel.addSuffix("suffix");
+    debugPrint("Added suffix");
+  } catch (e) {
+    debugPrint("Connect to last connected server failed. $ip:$port");
+    debugPrint("$e");
+  } finally {
+    var title = connectSuccess ? "自动连接成功" : "自动连接失败";
+    var content = connectSuccess ? "自动连接之前的服务器成功" : "自动连接之前的服务器失败";
+    Navigator.of(global_project.navigatorKey.currentContext!).pop(); // 退出扫描IP窗口
+    showDialog(
+        context: global_project.navigatorKey.currentContext!,
+        builder: (BuildContext build) {
+          return AlertDialog(
+            title: Text(title),
+            content: Text(content),
+          );
+        });
+  }
+  await Future.delayed(const Duration(milliseconds: 500));
+  Navigator.of(global_project.navigatorKey.currentContext!).pop(); // 退出扫描IP窗口
+  await channel.shutdown();
 }
