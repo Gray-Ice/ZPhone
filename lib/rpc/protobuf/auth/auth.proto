@@ -1,9 +1,0 @@
-syntax = "proto3";
-package auth_rpc;
-import "google/protobuf/empty.proto";
-option go_package = "methods/auth";
-
-
-service Auth {
-  rpc HeartBeat(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-}
