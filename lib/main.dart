@@ -14,13 +14,7 @@ class Home extends StatelessWidget {
     sc  = ServerConnection("10.0.2.2", 8080, "/phoneConnection", context);
     sc!.init();
 
-    var flag = ByteData(2);
-    flag.setInt16(0, 1, Endian.big);
-    List<int> l = <int>[];
-    l.addAll(flag.buffer.asInt8List());
-    l.addAll(utf8.encode("inputasfhujasdhgasikdahsioasdadasndhasoiedaw ndaslkodiwasdskdashdfiuwaudkadsakdhaujdba"));
-    debugPrint("$l");
-    sc?.sendData(l);
+    // sc?.sendData(l);
     return Scaffold(
       appBar: AppBar(
         title: Text("ZPhone"),
@@ -28,7 +22,7 @@ class Home extends StatelessWidget {
         ],
         leading: Builder(builder: (BuildContext build){
           // return IconButton(onPressed: ()=>{Scaffold.of(build).openDrawer()}, icon: Icon(Icons.menu));
-          return IconButton(onPressed: ()=>{sc?.sendData(l)}, icon: Icon(Icons.menu));
+          return IconButton(onPressed: ()=>{sc?.createConnection()}, icon: Icon(Icons.menu));
         },),
       ),
       body: Text("Hello"),
