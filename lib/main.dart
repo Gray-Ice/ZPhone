@@ -11,14 +11,20 @@ class Home extends StatelessWidget {
   ServerConnection? sc;
   @override
   Widget build(BuildContext context) {
-    sc  = ServerConnection("10.0.2.2", 8080, "/phoneConnection", context);
+    sc  = ServerConnection("192.168.1.107", 8080, "/phoneConnection", context);
     sc!.init();
 
     var flag = ByteData(2);
     flag.setInt16(0, 1, Endian.big);
     List<int> l = <int>[];
     l.addAll(flag.buffer.asInt8List());
-    l.addAll(utf8.encode("inputasfhujasdhgasikdahsioasdadasndhasoiedaw ndaslkodiwasdskdashdfiuwaudkadsakdhaujdba"));
+    l.addAll(utf8.encode('{"code":123,"message":"hello","call-back-url":"hello","call-back-method":"soemthing","call-back-plugin-name":"This is a plugin name"}'));
+
+    // l.addAll(utf8.encode("{\"code\": 4005,"
+    //     " \"message\": \"hello, this is phone\","
+    //     "\"call-back-url\": \"\", "
+    //     "\"call-back-method\": \"\","
+    //     "\"call-back-plugin-name\": \"\"}"));
     debugPrint("$l");
     sc?.sendData(l);
     return Scaffold(
