@@ -27,6 +27,7 @@ class Home extends StatelessWidget {
     //     "\"call-back-plugin-name\": \"\"}"));
     debugPrint("$l");
     sc?.sendData(l);
+    // sc?.sendData(l);
     return Scaffold(
       appBar: AppBar(
         title: Text("ZPhone"),
@@ -34,7 +35,7 @@ class Home extends StatelessWidget {
         ],
         leading: Builder(builder: (BuildContext build){
           // return IconButton(onPressed: ()=>{Scaffold.of(build).openDrawer()}, icon: Icon(Icons.menu));
-          return IconButton(onPressed: ()=>{sc?.sendData(l)}, icon: Icon(Icons.menu));
+          return IconButton(onPressed: ()=>{sc?.createConnection()}, icon: Icon(Icons.menu));
         },),
       ),
       body: Text("Hello"),
