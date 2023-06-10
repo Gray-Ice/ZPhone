@@ -2,18 +2,21 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:grpc/grpc.dart';
 import 'package:synchronized/synchronized.dart';
 
-int hearBeatCode          = 4001;
-int phoneCallbackCode     = 4002;
-int authCode              = 4003;
-int errorCode             = 4004;
-int createConnectionCode  = 4005;
-int phoneHandleResultCode = 4006;
-int refuseConnectionCode  = 4007;
-int unSupportedCode       = 1003;
-int queryPluginsCode      = 4008; // query plugins
+int unSupportedCode          = 1003;
+int hearBeatCode             = 4001;
+int phoneCallbackCode        = 4002;
+int authCode                 = 4003;
+int errorCode                = 4004;
+int createConnectionCode     = 4005;
+int phoneHandleResultCode    = 4006;
+int refuseConnectionCode     = 4007;
+int queryPluginsCode         = 4008; // query plugins
+int disConnectCode           = 4009;
+int notFindAnotherDeviceCode = 4010;
+int deviceOnlineCode         = 4011;
+int deviceOfflineCode        = 4012;
 
 class ServerConnection {
   ServerConnection(this.ip, this.port, this.url, this.context);
@@ -27,6 +30,7 @@ class ServerConnection {
 
   Future<void> init() async {
     _ws = await WebSocket.connect("ws://$ip:$port$url");
+    // waiting for connection be ready
     while(_ws!.readyState == WebSocket.connecting) {
     }
     if(_ws!.readyState == WebSocket.open) {
@@ -72,7 +76,8 @@ class ServerConnection {
     _lock.synchronized(() {
       debugPrint("Sending message: $jsonText");
       // _ws?.add(utf8EncodedJsonData);
-      _ws?.add('{"message":"hello","code":4005,"call-back-url":"callback","call-back-method":"post","call-back-plugin-name":"callbackpligin"}');
+      // _ws?.add('{"message":"hello","code":4005,"call-back-url":"callback","call-back-method":"post","call-back-plugin-name":"callbackpligin"}');
+      _ws?.add(jsonText);
       // _ws?.add("1232132183idjksasa bdakidasdnaskdasdjasdlais");
       // debugPrint("Message sent.");
       debugPrint("${_ws?.readyState}");
