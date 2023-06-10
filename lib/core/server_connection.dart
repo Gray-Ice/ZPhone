@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_code/plugins/clipboard.dart';
+import 'package:grpc/grpc.dart';
+import 'package:provider/provider.dart';
 import 'package:synchronized/synchronized.dart';
 
 int unSupportedCode          = 1003;
@@ -29,8 +33,12 @@ class ServerConnection {
   WebSocket? _ws; // websocket
 
   Future<void> init() async {
-    _ws = await WebSocket.connect("ws://$ip:$port$url");
-    // waiting for connection be ready
+    try{
+      _ws = await WebSocket.connect("ws://$ip:$port$url").timeout(Duration(seconds: 1));
+    } catch(e) {
+      Provider.of<ClipboardModel>(context, listen: false).setClipboard("This is clip");
+      return;
+    }
     while(_ws!.readyState == WebSocket.connecting) {
     }
     if(_ws!.readyState == WebSocket.open) {
