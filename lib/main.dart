@@ -6,11 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_code/globals/project.dart';
 import 'package:flutter_code/plugins/clipboard.dart';
 import "package:flutter_code/views/menu_drawer.dart";
-<<<<<<< HEAD
-import "package:flutter_code/globals/plugins.dart";
-=======
 import 'package:provider/provider.dart';
->>>>>>> 67d7fac5d1228e7c5978924e2b9c901619ed4895
 
 import 'core/server_connection.dart';
 
@@ -19,11 +15,7 @@ class Home extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    sc  = ServerConnection("192.168.1.108", 8080, "/phoneConnection", context);
-=======
     sc = ServerConnection("10.0.2.2", 8080, "/phoneConnection", context);
->>>>>>> 67d7fac5d1228e7c5978924e2b9c901619ed4895
     sc!.init();
 
     sc?.sendData('{"code":123,"message":"hello","call-back-url":"hello","call-back-method":"soemthing","call-back-plugin-name":"This is a plugin name"}');

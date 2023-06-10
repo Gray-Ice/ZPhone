@@ -28,7 +28,6 @@ class ClipboardModel extends ZBaseChangeNotifier {
 
   String getClipboard() {
 
-    await http.get(url);
     String text = "";
     lock.synchronized(() => text = clipboard);
     return text;
