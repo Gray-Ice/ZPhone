@@ -1,9 +1,6 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_code/core/server_connection.dart';
 
-class ZBaseChangeNotifier extends ChangeNotifier {
-  int serverCalled = 0;
- void serverCallPlugin(){
-   serverCalled = 1;
-   notifyListeners();
- }
+abstract class ZBaseChangeNotifier extends ChangeNotifier {
+ Future<void> onServerCall(ServerInfo serverInfo);
 }

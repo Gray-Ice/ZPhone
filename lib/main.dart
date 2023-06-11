@@ -27,7 +27,8 @@ class Home extends StatelessWidget {
           builder: (BuildContext build) {
             // return IconButton(onPressed: ()=>{Scaffold.of(build).openDrawer()}, icon: Icon(Icons.menu));
             return IconButton(
-                onPressed: () => {sc?.createConnection()},
+                // onPressed: () => {sc?.createConnection()},
+                onPressed: () => {Provider.of<ClipboardModel>(context, listen: false).setClipboardWithServerData("This is clip")},
                 icon: const Icon(Icons.menu));
           },
         ),

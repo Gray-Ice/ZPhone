@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_code/globals/project.dart';
 import 'package:flutter_code/plugins/clipboard.dart';
 import 'package:grpc/grpc.dart';
 import 'package:provider/provider.dart';
@@ -22,6 +24,12 @@ int notFindAnotherDeviceCode = 4010;
 int deviceOnlineCode         = 4011;
 int deviceOfflineCode        = 4012;
 
+class ServerInfo {
+  ServerInfo(this.ip, this.port);
+ String ip = "";
+ int port = 0;
+}
+
 class ServerConnection {
   ServerConnection(this.ip, this.port, this.url, this.context);
 
@@ -36,7 +44,7 @@ class ServerConnection {
     try{
       _ws = await WebSocket.connect("ws://$ip:$port$url").timeout(Duration(seconds: 1));
     } catch(e) {
-      Provider.of<ClipboardModel>(context, listen: false).setClipboard("This is clip");
+      // Provider.of<ClipboardModel>(context, listen: false).setClipboard("This is clip");
       return;
     }
     while(_ws!.readyState == WebSocket.connecting) {
@@ -45,6 +53,8 @@ class ServerConnection {
       _ws!.add('{"code": $createConnectionCode, "message": "Hello, Server"}');
     }
       _ws?.listen((data) async {
+
+        // Handle unexpected data
         if(data is List<int>) {
           debugPrint("Received bytes: $data");
           debugPrint("Unsupported type: byte. Will do nothing");
@@ -52,6 +62,30 @@ class ServerConnection {
         }
 
         debugPrint("Received string:$data");
+        Map<String, dynamic> jsonRep;
+        try{
+          jsonRep = jsonDecode(data);
+        } on FormatException catch (e) {
+          debugPrint("core.server_connection: json format error occurred when decoding response from server: $e");
+          return;
+        }
+
+        int? code = jsonRep['code'] is int ? jsonRep['code'] : null;
+        String? message = jsonRep['message'] is String ? jsonRep['message'] : null;
+        String? pluginName = jsonRep['call-back-name'] is String ? jsonRep['call-back-name'] : null;
+        if (code == null || message == null || pluginName == null) {
+          debugPrint("core.server_connection: error: can not find specify key.\n$jsonRep");
+          return;
+        }
+        debugPrint("$jsonRep");
+
+        if(code == phoneCallbackCode) {
+          debugPrint("An phone callback method was trigger, target plugin: $pluginName");
+           var plugin = PWMap[pluginName];
+           debugPrint("$plugin");
+           ServerInfo info = ServerInfo(ip, port);
+           plugin?.onServerCall(info);
+        }
 
       }, onDone: (){
         showDialog(context: context, builder: (BuildContext ctx){
