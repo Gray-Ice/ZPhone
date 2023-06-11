@@ -30,6 +30,17 @@ class ServerInfo {
  int port = 0;
 }
 
+class NetMessage {
+  NetMessage(this.code, this.message, this.pluginName);
+  int code;
+  String message;
+  String pluginName;
+
+  Map<String, dynamic> toJson() {
+    return {"code": code, "message": message, "call-back-name": pluginName};
+  }
+}
+
 class ServerConnection {
   ServerConnection(this.ip, this.port, this.url, this.context);
 
@@ -95,6 +106,12 @@ class ServerConnection {
         });
       });
 
+  }
+
+  Future<void> keepWebsocketConnection(WebSocket ws) async {
+    while(ws.readyState == WebSocket.open) {
+      await Future.delayed(const Duration(seconds: 1));
+    }
   }
 
   void createConnection() {
